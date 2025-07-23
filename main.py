@@ -5,7 +5,7 @@ from routers.security import security
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI(title='Servidor de Eventos')
+app = FastAPI(title='FastApiExample')
 app.include_router(security, prefix='/api', tags=['security'])
 app.include_router(user, prefix='/api', tags=['users'])
 

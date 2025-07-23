@@ -45,7 +45,8 @@ def upgrade() -> None:
             'id': 1,
             'name': 'Admin',
             'email': 'adm@example.com',
-            'password': '$2b$12$9P7uGuun1qwfwsUONOmq5uUzDYLkrNDY32jSDLnZcDH8dntrc8Nqm',
+            'password': '$2b$12$9P7uGuun1qwfwsUONOmq5uUzDYLkrNDY32jSDLnZcDH8dntrc8Nqm', 
+            # password: 12345
             'is_admin': True
         }
     ])

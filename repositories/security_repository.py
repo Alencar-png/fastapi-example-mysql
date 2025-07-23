@@ -69,3 +69,39 @@ class SecurityRepository:
                 detail="Acesso não autorizado.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+    @staticmethod
+    def require_admin(current_user: dict):
+        """Verifica se o usuário atual é admin, caso contrário lança exceção"""
+        if not current_user["is_admin"]:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN, 
+                detail='Seu usuário não tem permissão para realizar a ação.'
+            )
+
+    @staticmethod
+    def require_admin_or_self(current_user: dict, target_user_id: int):
+        """Verifica se o usuário atual é admin ou se está tentando acessar seus próprios dados"""
+        if not current_user["is_admin"] and current_user["user_id"] != target_user_id:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN, 
+                detail='Seu usuário não tem permissão para realizar a ação.'
+            )
+
+    @staticmethod
+    def prevent_admin_self_deletion(current_user: dict, target_user_id: int):
+        """Impede que administradores se deletem a si mesmos"""
+        if current_user["is_admin"] and current_user["user_id"] == target_user_id:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN, 
+                detail='Administradores não podem deletar a si mesmos.'
+            )
+
+    @staticmethod
+    def prevent_admin_deleting_admin(user_to_delete: User):
+        """Impede que administradores deletem outros administradores"""
+        if user_to_delete.is_admin:
+            raise HTTPException(
+                status_code=HTTPStatus.FORBIDDEN, 
+                detail='Administradores não podem deletar outros administradores.'
+            )

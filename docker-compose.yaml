@@ -1,9 +1,9 @@
-name: example
+name: global-voices-back
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: example-mysql
+    container_name: global-voices-mysql
     restart: unless-stopped
     env_file:
       - .env
@@ -14,6 +14,17 @@ services:
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
       MYSQL_USER: "${MYSQL_USER}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+
+  adminer:
+    image: adminer:latest
+    container_name: example-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
 
 networks:
   default:

@@ -14,28 +14,19 @@ user = APIRouter()
 def create_user(user_data: UserCreate,
                 repo: UsersRepository = Depends(),
                 current_user : SecurityRepository.get_current_user = Depends()):
-    if not current_user["is_admin"]:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Seu usuário não tem permissão para realizar a ação.'
-        )
+    SecurityRepository.require_admin(current_user)
     return repo.create(user_data)
 
 @user.get("/users/")
 def read_users(repo: UsersRepository = Depends(),
                current_user : SecurityRepository.get_current_user = Depends()):
-    if not current_user["is_admin"]:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Seu usuário não tem permissão para realizar a ação.'
-        )
+    SecurityRepository.require_admin(current_user)
     return repo.base_repository.db.query(repo._entity).all()
 
 @user.get("/users/{user_id}")
 def read_user(user_id: int, repo: UsersRepository = Depends(),
               current_user : SecurityRepository.get_current_user = Depends()):
-    if not current_user["is_admin"] and current_user["user_id"] != user_id:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Seu usuário não tem permissão para realizar a ação.'
-        )
+    SecurityRepository.require_admin_or_self(current_user, user_id)
     return repo.find_one(user_id)
 
 @user.put("/users/{user_id}",)
@@ -44,10 +35,7 @@ def update_user(user_id: int,
                 current_user : SecurityRepository.get_current_user = Depends(),
                 repo: UsersRepository = Depends()):
     
-    if not current_user["is_admin"] and current_user["user_id"] != user_id:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Seu usuário não tem permissão para realizar a ação.'
-        )
+    SecurityRepository.require_admin_or_self(current_user, user_id)
     return repo.update(user_id, user_data)
 
 
@@ -55,20 +43,10 @@ def update_user(user_id: int,
 def delete_user(user_id: int,
                 current_user: SecurityRepository.get_current_user = Depends(),
                 repo: UsersRepository = Depends()):
-    if not current_user["is_admin"]:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Seu usuário não tem permissão para realizar a ação.'
-        )
-    
-    if current_user["is_admin"] and current_user["user_id"] == user_id:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Administradores não podem deletar a si mesmos.'
-        )
+    SecurityRepository.require_admin(current_user)
+    SecurityRepository.prevent_admin_self_deletion(current_user, user_id)
     
     user_to_delete = repo.find_one(user_id)
-    if user_to_delete["is_admin"]:
-        raise HTTPException(
-            status_code=HTTPStatus.FORBIDDEN, detail='Administradores não podem deletar outros administradores.'
-        )
+    SecurityRepository.prevent_admin_deleting_admin(user_to_delete)
     
     return repo.delete(user_id)
