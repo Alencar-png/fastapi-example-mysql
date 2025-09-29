@@ -5,7 +5,12 @@ from routers.security import security
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI(title='FastApiExample')
+app = FastAPI(
+    title="FastApiExample",
+    docs_url="/api/docs", 
+    redoc_url="/api/redoc",  
+    openapi_url="/api/openapi.json"
+)
 app.include_router(security, prefix='/api', tags=['security'])
 app.include_router(user, prefix='/api', tags=['users'])
 
