@@ -1,9 +1,9 @@
-name: global-voices-back
+name: fastapi-example
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: global-voices-mysql
+    container_name: mysql
     restart: unless-stopped
     env_file:
       - .env
@@ -17,7 +17,7 @@ services:
 
   adminer:
     image: adminer:latest
-    container_name: example-adminer
+    container_name: adminer
     restart: unless-stopped
     ports:
       - "8080:8080"
