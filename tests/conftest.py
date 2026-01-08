@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
-from models.models import Base, User, UserRole
+from models.models import Base, User, UserRole, AccessLog
 from repositories.base_repository import get_db, BaseRepository
 from repositories.users_repository import UsersRepository
 from repositories.security_repository import SecurityRepository
@@ -68,6 +68,10 @@ def client(db_session):
         token: HTTPAuthorizationCredentials = Depends(security_bearer)
     ):
         """Override do get_current_user para usar o banco de teste"""
+        from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
+        from models.models import AccessLogType
+        from repositories.security_repository import SecurityRepository
+        
         ALGORITHM = 'HS256'
         
         try:
@@ -97,7 +101,31 @@ def client(db_session):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             return {"user": user, "user_id": user.id, "role": role}
-        except Exception as e:
+        except ExpiredSignatureError:
+            # Token expirado - criar log de logout por expiração
+            try:
+                # Tentar decodificar sem verificação de expiração para pegar o email
+                payload = decode(token.credentials, TEST_SECRET_KEY,
+                               algorithms=[ALGORITHM], options={"verify_exp": False})
+                email: str = payload.get("sub")
+                user = db_session.query(User).filter(User.email == email).first()
+                if user:
+                    # Criar log de logout por expiração
+                    SecurityRepository.create_access_log(
+                        db=db_session,
+                        user_id=user.id,
+                        log_type=AccessLogType.LOGOUT_EXPIRATION,
+                        request=None
+                    )
+            except Exception:
+                pass  # Se não conseguir criar o log, continua com o erro
+            
+            raise HTTPException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                detail="Token expirado. Faça login novamente.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except (InvalidTokenError, Exception) as e:
             raise HTTPException(
                 status_code=HTTPStatus.UNAUTHORIZED,
                 detail="Acesso não autorizado.",
@@ -186,7 +214,7 @@ def test_super_admin_user(db_session):
 def create_test_token(email: str, role: UserRole):
     """Helper para criar tokens JWT para testes"""
     ALGORITHM = 'HS256'
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 dia = 24 horas * 60 minutos
     
     to_encode = {'sub': email, 'role': role.value}
     expire = datetime.now(tz=ZoneInfo('UTC')) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)

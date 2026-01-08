@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Enum, TypeDecorator
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Enum, TypeDecorator, DateTime
 from sqlalchemy.orm import relationship, deferred
 from config.database import Base
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import enum
 
 class UserRole(str, enum.Enum):
@@ -40,4 +42,25 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False)
     password = deferred(Column(String(255), nullable=False))
     role = Column(UserRoleType(), nullable=False, default=UserRole.BASIC_USER)
+
+
+class AccessLogType(str, enum.Enum):
+    """Tipos de log de acesso"""
+    LOGIN = "login"
+    LOGOUT = "logout"
+    LOGOUT_EXPIRATION = "logout_expiration"
+
+
+class AccessLog(Base):
+    __tablename__ = "access_logs"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    log_type = Column(String(50), nullable=False)  # login, logout, logout_expiration
+    logged_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(tz=ZoneInfo('UTC')))
+    ip_address = Column(String(45), nullable=True)  # IPv4 ou IPv6
+    user_agent = Column(String(500), nullable=True)
+    
+    # Relacionamento com User
+    user = relationship("User", backref="access_logs")
 

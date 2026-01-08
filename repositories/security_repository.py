@@ -1,13 +1,14 @@
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from repositories.base_repository import BaseRepository, get_db
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from datetime import datetime, timedelta
 from config.database import SessionLocal
 from sqlalchemy.orm import Session
-from models.models import User, UserRole
+from models.models import User, UserRole, AccessLog, AccessLogType
 from zoneinfo import ZoneInfo
 from http import HTTPStatus
 from jwt import encode, decode
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 import bcrypt
 import os
@@ -16,7 +17,7 @@ security = HTTPBearer()
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 dia = 24 horas * 60 minutos
 
 
 class SecurityRepository:
@@ -54,6 +55,7 @@ class SecurityRepository:
             return user
         return None
 
+    @staticmethod
     def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
         try:
             payload = decode(token.credentials, SECRET_KEY,
@@ -76,12 +78,64 @@ class SecurityRepository:
                 raise Exception()
             
             return {"user": user, "user_id": user.id, "role": role}
-        except Exception:
+        except ExpiredSignatureError as e:
+            # Token expirado - criar log de logout por expiração
+            try:
+                # Tentar decodificar sem verificação de expiração para pegar o email
+                payload = decode(token.credentials, SECRET_KEY,
+                               algorithms=[ALGORITHM], options={"verify_exp": False})
+                email: str = payload.get("sub")
+                user = db.query(User).filter(User.email == email).first()
+                if user:
+                    # Criar log de logout por expiração (sem request, pois não está disponível aqui)
+                    SecurityRepository.create_access_log(
+                        db=db,
+                        user_id=user.id,
+                        log_type=AccessLogType.LOGOUT_EXPIRATION,
+                        request=None
+                    )
+            except Exception as log_error:
+                # Se não conseguir criar o log, apenas registra mas continua com o erro original
+                import logging
+                logging.warning(f"Erro ao criar log de logout por expiração: {log_error}")
+            
+            raise HTTPException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                detail="Token expirado. Faça login novamente.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except (InvalidTokenError, Exception) as e:
             raise HTTPException(
                 status_code=HTTPStatus.UNAUTHORIZED,
                 detail="Acesso não autorizado.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+    
+    @staticmethod
+    def create_access_log(db: Session, user_id: int, log_type: AccessLogType, request: Request = None):
+        """Cria um log de acesso (login/logout)"""
+        ip_address = None
+        user_agent = None
+        
+        if request:
+            # Obter IP do cliente
+            if request.client:
+                ip_address = request.client.host
+            # Obter User-Agent
+            user_agent = request.headers.get("user-agent")
+            if user_agent and len(user_agent) > 500:
+                user_agent = user_agent[:500]  # Limitar tamanho
+        
+        access_log = AccessLog(
+            user_id=user_id,
+            log_type=log_type.value,
+            logged_at=datetime.now(tz=ZoneInfo('UTC')),
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        db.add(access_log)
+        db.commit()
+        return access_log
 
     @staticmethod
     def require_admin(current_user: dict):
