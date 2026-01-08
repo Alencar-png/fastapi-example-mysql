@@ -14,6 +14,10 @@ from jwt import encode
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+# Configurar SECRET_KEY para testes
+TEST_SECRET_KEY = os.getenv('SECRET_KEY', 'test-secret-key-for-testing-only')
+os.environ['SECRET_KEY'] = TEST_SECRET_KEY
+
 
 # Configuração do banco de dados de teste em memória
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -177,8 +181,7 @@ def test_super_admin_user(db_session):
 
 
 
-# SECRET_KEY para testes - deve ser o mesmo usado no override
-TEST_SECRET_KEY = os.getenv('SECRET_KEY', 'test-secret-key-for-testing-only')
+# TEST_SECRET_KEY já definido no topo do arquivo
 
 def create_test_token(email: str, role: UserRole):
     """Helper para criar tokens JWT para testes"""
