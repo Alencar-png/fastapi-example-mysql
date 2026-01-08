@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(length=255), nullable=True),
         sa.Column('email', sa.String(length=255), nullable=False),
         sa.Column('password', sa.String(length=255), nullable=False),
-        sa.Column('is_admin', sa.Boolean(), nullable=False),
+        sa.Column('role', sa.Enum('superAdmin', 'admin', 'basicUser', name='userrole'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('email')
     )
@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.column('name', sa.String(length=255)),
         sa.column('email', sa.String(length=255)),
         sa.column('password', sa.String(length=255)),
-        sa.column('is_admin', sa.Boolean())
+        sa.column('role', sa.Enum('superAdmin', 'admin', 'basicUser', name='userrole'))
     )
 
     op.bulk_insert(users_table, [
@@ -47,7 +47,7 @@ def upgrade() -> None:
             'email': 'adm@example.com',
             'password': '$2b$12$9P7uGuun1qwfwsUONOmq5uUzDYLkrNDY32jSDLnZcDH8dntrc8Nqm', 
             # password: 12345
-            'is_admin': True
+            'role': 'superAdmin'
         }
     ])
 

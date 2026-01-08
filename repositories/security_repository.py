@@ -1,10 +1,10 @@
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, get_db
 from fastapi import Depends, HTTPException
 from datetime import datetime, timedelta
 from config.database import SessionLocal
 from sqlalchemy.orm import Session
-from models.models import User
+from models.models import User, UserRole
 from zoneinfo import ZoneInfo
 from http import HTTPStatus
 from jwt import encode, decode
@@ -62,7 +62,7 @@ class SecurityRepository:
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 raise Exception()
-            return {"user": user, "user_id": user.id, "is_admin": user.is_admin}
+            return {"user": user, "user_id": user.id, "role": user.role}
         except Exception:
             raise HTTPException(
                 status_code=HTTPStatus.UNAUTHORIZED,
@@ -72,8 +72,9 @@ class SecurityRepository:
 
     @staticmethod
     def require_admin(current_user: dict):
-        """Verifica se o usuário atual é admin, caso contrário lança exceção"""
-        if not current_user["is_admin"]:
+        """Verifica se o usuário atual é admin ou superAdmin, caso contrário lança exceção"""
+        role = current_user.get("role")
+        if role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN, 
                 detail='Seu usuário não tem permissão para realizar a ação.'
@@ -81,8 +82,10 @@ class SecurityRepository:
 
     @staticmethod
     def require_admin_or_self(current_user: dict, target_user_id: int):
-        """Verifica se o usuário atual é admin ou se está tentando acessar seus próprios dados"""
-        if not current_user["is_admin"] and current_user["user_id"] != target_user_id:
+        """Verifica se o usuário atual é admin/superAdmin ou se está tentando acessar seus próprios dados"""
+        role = current_user.get("role")
+        is_admin = role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+        if not is_admin and current_user["user_id"] != target_user_id:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN, 
                 detail='Seu usuário não tem permissão para realizar a ação.'
@@ -90,8 +93,10 @@ class SecurityRepository:
 
     @staticmethod
     def prevent_admin_self_deletion(current_user: dict, target_user_id: int):
-        """Impede que administradores se deletem a si mesmos"""
-        if current_user["is_admin"] and current_user["user_id"] == target_user_id:
+        """Impede que administradores/superAdmins se deletem a si mesmos"""
+        role = current_user.get("role")
+        is_admin = role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
+        if is_admin and current_user["user_id"] == target_user_id:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN, 
                 detail='Administradores não podem deletar a si mesmos.'
@@ -99,9 +104,9 @@ class SecurityRepository:
 
     @staticmethod
     def prevent_admin_deleting_admin(user_to_delete: User):
-        """Impede que administradores deletem outros administradores"""
-        if user_to_delete.is_admin:
+        """Impede que administradores deletem outros administradores ou superAdmins"""
+        if user_to_delete.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
             raise HTTPException(
                 status_code=HTTPStatus.FORBIDDEN, 
-                detail='Administradores não podem deletar outros administradores.'
+                detail='Administradores não podem deletar outros administradores ou superAdmins.'
             )

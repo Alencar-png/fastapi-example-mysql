@@ -65,8 +65,9 @@ class BaseRepository():
 
     def update_one(self, entity, item_id: int, current_object, item):
         try:
-            for key, value in item.dict().items():
-                setattr(current_object, key, value)
+            for key, value in item.dict(exclude_unset=True).items():
+                if value is not None:  # Só atualiza campos que não são None
+                    setattr(current_object, key, value)
             self.db.commit()
             updated_object = self.db.query(entity).get(item_id)
             return updated_object

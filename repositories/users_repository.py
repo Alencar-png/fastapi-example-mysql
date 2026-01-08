@@ -1,7 +1,7 @@
 from repositories.base_repository import BaseRepository, CRUDBase
 from schemas.user_schemas import UserCreate, UserUpdate
 from fastapi import Depends, HTTPException
-from models.models import User
+from models.models import User, UserRole
 import bcrypt
 
 
@@ -24,7 +24,7 @@ class UsersRepository(CRUDBase):
             name=user_data.name,
             email=user_data.email,
             password=password_hash,
-            is_admin=user_data.is_admin if user_data.is_admin is not None else False  
+            role=user_data.role if user_data.role is not None else UserRole.BASIC_USER  
         )
 
         try:
@@ -51,13 +51,16 @@ class UsersRepository(CRUDBase):
             if not user:
                 raise HTTPException(
                     status_code=400, detail="Usuário não encontrado.")
-
+            
             if user_data.email and self.email_exists(user_data.email, user_id):
                 raise HTTPException(
                     status_code=400, detail="Email já está em uso.")
 
             self.base_repository.update_one(self._entity, user_id, user, user_data)
             return {"message": "Usuário atualizado com sucesso."}
+        except HTTPException:
+            # Re-raise HTTPExceptions para manter o status code correto
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=500, detail="Erro ao atualizar usuário."
