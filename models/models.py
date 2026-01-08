@@ -5,6 +5,9 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import enum
 
+# Fuso horário local: UTC-3
+LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')  # UTC-3
+
 class UserRole(str, enum.Enum):
     SUPER_ADMIN = "superAdmin"
     ADMIN = "admin"
@@ -57,7 +60,7 @@ class AccessLog(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     log_type = Column(String(50), nullable=False)  # login, logout, logout_expiration
-    logged_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(tz=ZoneInfo('UTC')))
+    logged_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(tz=LOCAL_TIMEZONE))  # UTC-3
     ip_address = Column(String(45), nullable=True)  # IPv4 ou IPv6
     user_agent = Column(String(500), nullable=True)
     

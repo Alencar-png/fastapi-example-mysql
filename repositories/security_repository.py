@@ -18,6 +18,9 @@ security = HTTPBearer()
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = 'HS256'
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 dia = 24 horas * 60 minutos
+# Fuso horário local: UTC-3
+LOCAL_TIMEZONE = ZoneInfo('America/Sao_Paulo')  # UTC-3
+UTC_TIMEZONE = ZoneInfo('UTC')
 
 
 class SecurityRepository:
@@ -37,7 +40,8 @@ class SecurityRepository:
 
     def create_access_token(self, data):
         to_encode = data.dict().copy() if hasattr(data, 'dict') else data.copy()
-        expire = datetime.now(tz=ZoneInfo('UTC')) + \
+        # Tokens JWT devem usar UTC (padrão)
+        expire = datetime.now(tz=UTC_TIMEZONE) + \
             timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({'exp': expire})
         encoded_jwt = encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -129,7 +133,7 @@ class SecurityRepository:
         access_log = AccessLog(
             user_id=user_id,
             log_type=log_type.value,
-            logged_at=datetime.now(tz=ZoneInfo('UTC')),
+            logged_at=datetime.now(tz=LOCAL_TIMEZONE),  # UTC-3 (America/Sao_Paulo)
             ip_address=ip_address,
             user_agent=user_agent
         )
