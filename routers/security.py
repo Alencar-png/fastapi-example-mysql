@@ -14,5 +14,8 @@ def login(data: SecuritySchema, repo: SecurityRepository = Depends()):
             status_code=HTTPStatus.BAD_REQUEST,
             detail='Email ou Senha incorretos.'
         )
-    access_token = repo.create_access_token(data={'sub': user.email})
+    access_token = repo.create_access_token(data={
+        'sub': user.email,
+        'role': user.role.value
+    })
     return {'access_token': access_token, 'token_type': 'Bearer'}

@@ -59,10 +59,23 @@ class SecurityRepository:
             payload = decode(token.credentials, SECRET_KEY,
                              algorithms=[ALGORITHM])
             email: str = payload.get("sub")
+            role_str: str = payload.get("role")
+            
+            # Converter a role string do token de volta para o enum
+            role = None
+            for user_role in UserRole:
+                if user_role.value == role_str:
+                    role = user_role
+                    break
+            
+            if not role:
+                raise Exception()
+            
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 raise Exception()
-            return {"user": user, "user_id": user.id, "role": user.role}
+            
+            return {"user": user, "user_id": user.id, "role": role}
         except Exception:
             raise HTTPException(
                 status_code=HTTPStatus.UNAUTHORIZED,

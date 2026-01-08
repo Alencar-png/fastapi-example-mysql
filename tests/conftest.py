@@ -69,6 +69,22 @@ def client(db_session):
         try:
             payload = decode(token.credentials, TEST_SECRET_KEY, algorithms=[ALGORITHM])
             email: str = payload.get("sub")
+            role_str: str = payload.get("role")
+            
+            # Converter a role string do token de volta para o enum
+            role = None
+            for user_role in UserRole:
+                if user_role.value == role_str:
+                    role = user_role
+                    break
+            
+            if not role:
+                raise HTTPException(
+                    status_code=HTTPStatus.UNAUTHORIZED,
+                    detail="Acesso não autorizado.",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
             user = db_session.query(User).filter(User.email == email).first()
             if not user:
                 raise HTTPException(
@@ -76,7 +92,7 @@ def client(db_session):
                     detail="Acesso não autorizado.",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            return {"user": user, "user_id": user.id, "role": user.role}
+            return {"user": user, "user_id": user.id, "role": role}
         except Exception as e:
             raise HTTPException(
                 status_code=HTTPStatus.UNAUTHORIZED,
@@ -164,12 +180,12 @@ def test_super_admin_user(db_session):
 # SECRET_KEY para testes - deve ser o mesmo usado no override
 TEST_SECRET_KEY = os.getenv('SECRET_KEY', 'test-secret-key-for-testing-only')
 
-def create_test_token(email: str):
+def create_test_token(email: str, role: UserRole):
     """Helper para criar tokens JWT para testes"""
     ALGORITHM = 'HS256'
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
     
-    to_encode = {'sub': email}
+    to_encode = {'sub': email, 'role': role.value}
     expire = datetime.now(tz=ZoneInfo('UTC')) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({'exp': expire})
     encoded_jwt = encode(to_encode, TEST_SECRET_KEY, algorithm=ALGORITHM)
@@ -179,17 +195,17 @@ def create_test_token(email: str):
 @pytest.fixture
 def admin_token(test_admin_user):
     """Gera um token JWT para o usuário admin"""
-    return create_test_token(test_admin_user.email)
+    return create_test_token(test_admin_user.email, test_admin_user.role)
 
 
 @pytest.fixture
 def super_admin_token(test_super_admin_user):
     """Gera um token JWT para o usuário superAdmin"""
-    return create_test_token(test_super_admin_user.email)
+    return create_test_token(test_super_admin_user.email, test_super_admin_user.role)
 
 
 @pytest.fixture
 def user_token(test_user):
     """Gera um token JWT para o usuário básico"""
-    return create_test_token(test_user.email)
+    return create_test_token(test_user.email, test_user.role)
 
